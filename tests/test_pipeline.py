@@ -6,7 +6,7 @@ import sys
 sys.path.insert(0, "D:/ai-quant-nautilus/src")
 
 import pytest
-from ai_quant_nautilus.backtest.nautilus_adapter import NautilusBacktestAdapter, BacktestOutcome
+from ai_quant_nautilus.backtest.nautilus_adapter import BacktestEngine, BacktestResult
 from ai_quant_nautilus.backtest.templates import get_strategy_template
 from ai_quant_nautilus.evaluator.gates import GateEvaluator
 from ai_quant_nautilus.generator.prompt_builder import GenerationContext, build_system_prompt, build_user_prompt
@@ -40,20 +40,20 @@ class TestPipelineIntegration:
         }, index=dates)
 
         # 3. Run backtest
-        adapter = NautilusBacktestAdapter()
-        outcome = adapter.run_backtest(
+        engine = BacktestEngine()
+        result = engine.run(
             strategy_code=template.code,
             data=data,
             instrument_id="ETHUSDT.BINANCE",
         )
-        assert outcome.ok
-        assert "EMACrossStrategy" in outcome.strategy_name
+        assert result.ok
+        assert "EMACrossStrategy" in result.strategy_name
 
         # 4. Evaluate
         evaluator = GateEvaluator()
-        result = evaluator.evaluate(outcome)
+        outcome = evaluator.evaluate(result)
         # Should have evaluated the outcome
-        assert len(result.gates) > 0
+        assert len(outcome.gates) > 0
 
     def test_rsi_template_pipeline(self):
         """Test RSI template through full pipeline."""
@@ -77,9 +77,9 @@ class TestPipelineIntegration:
             "low": [p*0.99 for p in prices], "close": prices, "volume": [100.0]*n
         }, index=dates)
 
-        adapter = NautilusBacktestAdapter()
-        outcome = adapter.run_backtest(strategy_code=template.code, data=data)
-        assert outcome.ok
+        engine = BacktestEngine()
+        result = engine.run(strategy_code=template.code, data=data)
+        assert result.ok
 
     def test_golden_cross_template(self):
         """Test Golden Cross template."""
@@ -130,12 +130,12 @@ class TestPipelineIntegration:
         valid, errors = validate_schema_output(llm_output)
         assert valid, f"Validation errors: {errors}"
 
-    def test_mock_backtest_with_real_template(self):
+    def test_backtest_with_real_template(self):
         """Test that backtest produces expected results for real templates."""
         import numpy as np
         import pandas as pd
 
-        adapter = NautilusBacktestAdapter()
+        engine = BacktestEngine()
 
         # Generate sample data
         np.random.seed(42)
@@ -154,9 +154,9 @@ class TestPipelineIntegration:
             template = get_strategy_template(template_name)
             assert template is not None
 
-            outcome = adapter.run_backtest(strategy_code=template.code, data=data)
-            assert outcome.ok
-            assert template.name in outcome.strategy_name
+            result = engine.run(strategy_code=template.code, data=data)
+            assert result.ok
+            assert template.name in result.strategy_name
 
     def test_performance_metrics_integration(self):
         """Test performance metrics calculation with sample data."""

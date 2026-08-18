@@ -1,32 +1,28 @@
-"""Backtest module."""
 from ai_quant_nautilus.backtest.nautilus_adapter import (
-    NautilusBacktestAdapter,
-    BacktestOutcome,
+    BacktestEngine,
+    BacktestResult,
+    BacktestConfig,
     translate_strategy,
     ast_guard,
     generate_nautilus_strategy,
+    Strategy,
+    OrderSide,
+    PositionDirection,
 )
-from ai_quant_nautilus.backtest.performance import (
-    PerformanceMetrics,
-    calculate_performance_metrics,
-    evaluate_strategy_performance,
-)
-from ai_quant_nautilus.backtest.templates import (
-    get_strategy_template,
-    STRATEGY_TEMPLATES,
-    StrategyTemplate,
-)
+from ai_quant_nautilus.backtest.performance import PerformanceMetrics, calculate_performance_metrics
+from ai_quant_nautilus.backtest.templates import get_strategy_template
 
 __all__ = [
-    "NautilusBacktestAdapter",
-    "BacktestOutcome",
+    "BacktestEngine",
+    "BacktestResult",
+    "BacktestConfig",
     "translate_strategy",
     "ast_guard",
     "generate_nautilus_strategy",
+    "Strategy",
+    "OrderSide",
+    "PositionDirection",
     "PerformanceMetrics",
     "calculate_performance_metrics",
-    "evaluate_strategy_performance",
     "get_strategy_template",
-    "STRATEGY_TEMPLATES",
-    "StrategyTemplate",
 ]

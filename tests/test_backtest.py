@@ -4,7 +4,10 @@ sys.path.insert(0, "D:/ai-quant-nautilus/src")
 import pytest
 import numpy as np
 import pandas as pd
-from ai_quant_nautilus.backtest.nautilus_adapter import ast_guard, generate_nautilus_strategy, NautilusBacktestAdapter, BacktestOutcome
+from ai_quant_nautilus.backtest.nautilus_adapter import (
+    BacktestEngine, BacktestConfig, ast_guard, generate_nautilus_strategy, 
+    Strategy, OrderSide, PositionDirection, translate_strategy
+)
 from ai_quant_nautilus.backtest.performance import PerformanceMetrics, calculate_performance_metrics
 from ai_quant_nautilus.backtest.templates import get_strategy_template
 
@@ -70,8 +73,8 @@ class TestGenerateNautilusStrategy:
         assert "Strategy" in code
 
 
-class TestRealBacktest:
-    """Test backtesting with real OHLCV data."""
+class TestBacktestEngine:
+    """Test production-grade backtest engine with real OHLCV data."""
 
     @pytest.fixture
     def sample_ohlcv(self):
@@ -80,7 +83,6 @@ class TestRealBacktest:
         n = 500
         dates = pd.date_range(start="2024-01-01", periods=n, freq="1h")
 
-        # Random walk with drift
         prices = [50000.0]
         for _ in range(n - 1):
             change = np.random.normal(0.0001, 0.02)
@@ -96,107 +98,144 @@ class TestRealBacktest:
         df.index.name = "timestamp"
         return df
 
-    def test_backtest_with_real_data(self, sample_ohlcv):
-        """Test backtest on real OHLCV data."""
-        adapter = NautilusBacktestAdapter()
+    def test_engine_init(self):
+        engine = BacktestEngine()
+        assert engine is not None
 
-        # Use a simple strategy template
+    def test_engine_with_custom_config(self):
+        config = BacktestConfig(
+            initial_capital=500000.0,
+            commission_rate=0.0015,
+            slippage_pct=0.001,
+        )
+        engine = BacktestEngine(config=config)
+        assert engine.config.initial_capital == 500000.0
+        assert engine.config.commission_rate == 0.0015
+
+    def test_backtest_with_ema_cross(self, sample_ohlcv):
+        """Test EMA Cross strategy on real data."""
+        engine = BacktestEngine()
         template = get_strategy_template("ema_cross")
         assert template is not None
 
-        outcome = adapter.run_backtest(
+        result = engine.run(
             strategy_code=template.code,
             data=sample_ohlcv,
             instrument_id="BTCUSDT.BINANCE",
             initial_capital=1000000.0,
         )
 
-        assert outcome.ok
-        assert outcome.strategy_name == "EMACrossStrategy"
-        assert isinstance(outcome.equity_curve, list)
-        assert len(outcome.equity_curve) > 0
-
-    def test_backtest_with_trending_data(self):
-        """Test backtest on trending data."""
-        np.random.seed(123)
-        n = 300
-        dates = pd.date_range(start="2024-01-01", periods=n, freq="1h")
-
-        # Upward trend
-        prices = [100.0]
-        for _ in range(n - 1):
-            change = np.random.normal(0.001, 0.01)
-            prices.append(prices[-1] * (1 + change))
-
-        df = pd.DataFrame({
-            "open": prices,
-            "high": [p * 1.02 for p in prices],
-            "low": [p * 0.98 for p in prices],
-            "close": prices,
-            "volume": [100.0] * n,
-        }, index=dates)
-        df.index.name = "timestamp"
-
-        adapter = NautilusBacktestAdapter()
-        template = get_strategy_template("ema_cross")
-
-        outcome = adapter.run_backtest(
-            strategy_code=template.code,
-            data=df,
-            instrument_id="TEST.USDT",
-        )
-
-        assert outcome.ok
-        assert outcome.total_trades >= 0
-
-    def test_backtest_fails_on_bad_data(self, sample_ohlcv):
-        """Test backtest fails gracefully on invalid data."""
-        adapter = NautilusBacktestAdapter()
-
-        # Missing required column
-        bad_df = sample_ohlcv.drop(columns=["close"])
-        outcome = adapter.run_backtest(
-            strategy_code="pass",
-            data=bad_df,
-        )
-        assert not outcome.ok
-        assert "close" in outcome.error
-
-    def test_backtest_fails_on_bad_strategy(self, sample_ohlcv):
-        """Test backtest fails gracefully on invalid strategy."""
-        adapter = NautilusBacktestAdapter()
-        outcome = adapter.run_backtest(
-            strategy_code="invalid python code",
-            data=sample_ohlcv,
-        )
-        assert not outcome.ok
-        assert "compile error" in outcome.error.lower() or "SyntaxError" in outcome.error
+        assert result.ok
+        assert result.strategy_name == "EMACrossStrategy"
+        assert len(result.equity_curve) > 0
+        assert result.total_trades >= 0
+        assert result.initial_capital == 1000000.0
 
     def test_backtest_with_rsi_strategy(self, sample_ohlcv):
         """Test RSI strategy on real data."""
-        adapter = NautilusBacktestAdapter()
+        engine = BacktestEngine()
         template = get_strategy_template("rsi_mean_reversion")
         assert template is not None
 
-        outcome = adapter.run_backtest(
+        result = engine.run(
             strategy_code=template.code,
             data=sample_ohlcv,
             instrument_id="ETHUSDT.BINANCE",
         )
-        assert outcome.ok
+
+        assert result.ok
+        assert result.strategy_name == "RSIMeanReversionStrategy"
 
     def test_backtest_with_macd_strategy(self, sample_ohlcv):
         """Test MACD strategy on real data."""
-        adapter = NautilusBacktestAdapter()
+        engine = BacktestEngine()
         template = get_strategy_template("macd_signal")
         assert template is not None
 
-        outcome = adapter.run_backtest(
+        result = engine.run(
             strategy_code=template.code,
             data=sample_ohlcv,
             instrument_id="ETHUSDT.BINANCE",
         )
-        assert outcome.ok
+
+        assert result.ok
+
+    def test_backtest_fails_on_bad_data(self, sample_ohlcv):
+        """Test engine fails gracefully on invalid data."""
+        engine = BacktestEngine()
+        bad_df = sample_ohlcv.drop(columns=["close"])
+        result = engine.run(strategy_code="pass", data=bad_df)
+        assert not result.ok
+        assert "close" in result.error
+
+    def test_backtest_fails_on_bad_strategy(self, sample_ohlcv):
+        """Test engine fails gracefully on invalid strategy."""
+        engine = BacktestEngine()
+        result = engine.run(strategy_code="invalid python code", data=sample_ohlcv)
+        assert not result.ok
+        assert "compile error" in result.error.lower() or "SyntaxError" in result.error
+
+    def test_backtest_with_custom_capital(self, sample_ohlcv):
+        """Test backtest with custom initial capital."""
+        engine = BacktestEngine()
+        template = get_strategy_template("ema_cross")
+        
+        result = engine.run(
+            strategy_code=template.code,
+            data=sample_ohlcv,
+            initial_capital=250000.0,
+        )
+        
+        assert result.ok
+        assert result.initial_capital == 250000.0
+
+    def test_backtest_returns_comprehensive_metrics(self, sample_ohlcv):
+        """Test that results include all expected metrics."""
+        engine = BacktestEngine()
+        template = get_strategy_template("ema_cross")
+
+        result = engine.run(
+            strategy_code=template.code,
+            data=sample_ohlcv,
+        )
+
+        assert result.ok
+        # Capital metrics
+        assert result.initial_capital > 0
+        assert result.final_capital > 0
+        assert isinstance(result.net_pnl, float)
+        assert isinstance(result.gross_pnl, (float, int))
+        
+        # Risk metrics
+        assert result.max_drawdown <= 0  # Should be negative or zero
+        assert result.sharpe_ratio >= 0
+        assert result.volatility >= 0
+        
+        # Trade metrics
+        assert result.total_trades >= 0
+        assert 0 <= result.win_rate <= 1
+        
+        # Equity curve
+        assert len(result.equity_curve) > 0
+        assert len(result.drawdown_curve) > 0
+
+    def test_to_dict_format(self, sample_ohlcv):
+        """Test result serialization."""
+        engine = BacktestEngine()
+        template = get_strategy_template("ema_cross")
+        
+        result = engine.run(
+            strategy_code=template.code,
+            data=sample_ohlcv,
+        )
+        
+        d = result.to_dict()
+        assert "ok" in d
+        assert "strategy_name" in d
+        assert "net_pnl" in d
+        assert "sharpe_ratio" in d
+        assert "total_trades" in d
+        assert "win_rate" in d
 
 
 class TestPerformanceMetrics:
