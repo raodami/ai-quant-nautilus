@@ -3,6 +3,8 @@ sys.path.insert(0, "D:/ai-quant-nautilus/src")
 
 import pytest
 from ai_quant_nautilus.backtest.nautilus_adapter import ast_guard, generate_nautilus_strategy, NautilusBacktestAdapter, BacktestOutcome
+from ai_quant_nautilus.backtest.performance import PerformanceMetrics, calculate_performance_metrics, evaluate_strategy_performance
+from ai_quant_nautilus.backtest.templates import get_strategy_template, STRATEGY_TEMPLATES
 
 
 class TestAstGuard:
@@ -103,3 +105,65 @@ class TestEvalResult:
         result.add_gate(GateResult(name="Sharpe", passed=False, actual=0.3, threshold=0.5))
         assert not result.passed
         assert len(result.reasons) == 1
+
+
+class TestPerformanceMetrics:
+    def test_basic_calculation(self):
+        equity = [1000000, 1010000, 1005000, 1020000, 1015000, 1030000, 1025000, 1040000]
+        metrics = calculate_performance_metrics(equity)
+        assert metrics.total_return > 0
+        assert metrics.sharpe_ratio >= 0
+
+    def test_with_trades(self):
+        equity = [1000000, 1010000, 1005000, 1020000]
+        trades = [
+            {"pnl": 5000},
+            {"pnl": -3000},
+            {"pnl": 8000},
+        ]
+        metrics = calculate_performance_metrics(equity, trades)
+        assert metrics.total_trades == 3
+        assert metrics.win_rate > 0
+
+    def test_empty_equity(self):
+        metrics = calculate_performance_metrics([])
+        assert metrics.total_return == 0.0
+        assert metrics.sharpe_ratio == 0.0
+
+
+class TestStrategyTemplates:
+    def test_get_ema_cross_template(self):
+        tmpl = get_strategy_template("ema_cross")
+        assert tmpl is not None
+        assert "EMACrossStrategy" in tmpl.name
+        assert "EMA Cross" in tmpl.description
+
+    def test_get_rsi_template(self):
+        tmpl = get_strategy_template("rsi_mean_reversion")
+        assert tmpl is not None
+        assert "RSI" in tmpl.name
+
+    def test_get_macd_template(self):
+        tmpl = get_strategy_template("macd_signal")
+        assert tmpl is not None
+        assert "MACD" in tmpl.name
+
+    def test_get_nonexistent(self):
+        tmpl = get_strategy_template("nonexistent")
+        assert tmpl is None
+
+    def test_template_has_params(self):
+        tmpl = get_strategy_template("ema_cross")
+        assert "fast_period" in tmpl.params
+        assert "slow_period" in tmpl.params
+
+    def test_template_has_code(self):
+        tmpl = get_strategy_template("ema_cross")
+        assert "class EMACrossStrategy" in tmpl.code
+        assert "on_start" in tmpl.code
+        assert "on_bar" in tmpl.code
+
+    def test_all_templates_registered(self):
+        for name in STRATEGY_TEMPLATES:
+            tmpl = get_strategy_template(name)
+            assert tmpl is not None, f"Template {name} not found"

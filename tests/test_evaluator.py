@@ -42,3 +42,17 @@ class TestGateEvaluator:
         assert "PASS" in str(gate)
         assert "1.500" in str(gate)
         assert "0.5" in str(gate)
+
+    def test_multiple_gates(self):
+        evaluator = GateEvaluator()
+        outcome = BacktestOutcome(
+            ok=True,
+            strategy_name="test",
+            Sharpe_ratio=0.3,  # Below threshold
+            max_drawdown=-0.25,  # Above threshold (bad)
+            win_rate=0.35,  # Below threshold
+            total_trades=5,  # Below threshold
+        )
+        result = evaluator.evaluate(outcome)
+        assert not result.passed
+        assert len(result.gates) >= 4
