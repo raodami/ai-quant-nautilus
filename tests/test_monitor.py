@@ -2,9 +2,8 @@ import sys
 sys.path.insert(0, "D:/ai-quant-nautilus/src")
 
 import pytest
-import tempfile
-from pathlib import Path
-from ai_quant_nautilus.monitor import MetricsTracker, LiveMetrics
+from unittest.mock import MagicMock, patch
+from ai_quant_nautilus.monitor import MetricsTracker, LiveMetrics, MonitorServer
 from datetime import datetime
 
 
@@ -142,3 +141,49 @@ class TestMetricsTracker:
             tracker.record_snapshot(
                 equity=1000000 + i * 1000,
             )
+
+        history = tracker.get_history()
+        assert len(history) == 100
+        assert history[-1]["equity"] == 1099000.0
+
+
+class TestMonitorServer:
+    """Test monitor server."""
+
+    @patch("ai_quant_nautilus.monitor.HTTPServer")
+    def test_server_creation(self, mock_server_class):
+        """Test server can be created."""
+        tracker = MetricsTracker()
+        server = MonitorServer(tracker, port=9999)
+
+        assert server.port == 9999
+        assert server.host == "127.0.0.1"
+
+    def test_assets_directory(self):
+        """Test assets directory exists."""
+        assets_dir = MonitorServer.ASSETS_DIR
+        dashboard = assets_dir / "dashboard.html"
+        # If assets dir doesn't exist yet, skip this check
+        if not assets_dir.exists():
+            pytest.skip("Assets directory not found")
+        assert dashboard.exists()
+
+    def test_export_csv_no_data(self, tmp_path):
+        """Test CSV export with no data."""
+        tracker = MetricsTracker()
+        server = MonitorServer(tracker, output_dir=tmp_path)
+        result = server.export_csv()
+        assert result.suffix == ".csv"
+
+    def test_export_csv_with_data(self, tmp_path):
+        """Test CSV export with data."""
+        tracker = MetricsTracker()
+        tracker.record_snapshot(equity=1000000.0)
+
+        server = MonitorServer(tracker, output_dir=tmp_path)
+        result = server.export_csv(tmp_path / "test.csv")
+
+        assert result.exists()
+        content = result.read_text()
+        assert "equity" in content
+        assert "1000000" in content

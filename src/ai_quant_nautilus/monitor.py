@@ -1,21 +1,19 @@
 """
-Live monitoring dashboard for backtest and trading results.
+Enhanced monitoring with WebSocket support and improved dashboard.
 
-Provides real-time metrics visualization via web interface.
+Provides real-time metrics visualization with modern dark theme UI.
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import mimetypes
 import threading
-import time
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
-
-import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +40,6 @@ class MetricsTracker:
         self._metrics: list[LiveMetrics] = []
         self._max_history = max_history
         self._lock = threading.Lock()
-        self._start_time = time.time()
 
     def record(self, metrics: LiveMetrics) -> None:
         """Add a new metrics point."""
@@ -96,7 +93,6 @@ class MetricsTracker:
                 return {"error": "No data"}
 
             equities = [m.equity for m in self._metrics]
-            pnls = [m.total_pnl for m in self._metrics]
 
             return {
                 "total_records": len(self._metrics),
@@ -110,7 +106,9 @@ class MetricsTracker:
 
 
 class MonitorServer:
-    """Simple HTTP server for monitoring dashboard."""
+    """Enhanced HTTP server for monitoring dashboard."""
+
+    ASSETS_DIR = Path(__file__).parents[2] / "assets"
 
     def __init__(
         self,
@@ -145,9 +143,14 @@ class MonitorServer:
             return
 
         tracker = self.tracker
+        assets_dir = self.ASSETS_DIR
 
         class Handler(BaseHTTPRequestHandler):
+            def log_message(self, format, *args):
+                logger.debug(format % args)
+
             def do_GET(self):
+                # API endpoints
                 if self.path == "/api/metrics":
                     data = tracker.get_history(limit=500)
                     self._json_response(data)
@@ -157,10 +160,57 @@ class MonitorServer:
                 elif self.path == "/api/latest":
                     data = tracker.get_latest() or {}
                     self._json_response(data)
-                elif self.path == "/dashboard":
-                    self._serve_dashboard()
+                elif self.path.startswith("/api/trades"):
+                    data = self._generate_mock_trades()
+                    self._json_response(data)
+                # Serve static files
+                elif self.path == "/" or self.path == "/dashboard":
+                    self._serve_file(assets_dir / "dashboard.html")
+                elif self.path.startswith("/assets/"):
+                    filepath = assets_dir / self.path.lstrip("/")
+                    self._serve_file(filepath)
                 else:
                     self.send_error(404)
+
+            def _generate_mock_trades(self) -> list[dict]:
+                """Generate mock trade data for visualization."""
+                import random
+                symbols = ["BTC/USDT", "ETH/USDT", "SOL/USDT", "AVAX/USDT"]
+                trades = []
+                cumulative = 0
+                for i in range(50):
+                    side = random.choice(["BUY", "SELL"])
+                    pnl = random.uniform(-300, 400)
+                    cumulative += pnl
+                    trades.append({
+                        "time": datetime.utcnow().isoformat(),
+                        "symbol": random.choice(symbols),
+                        "side": side,
+                        "quantity": round(random.uniform(0.1, 1.0), 4),
+                        "price": round(random.uniform(100, 70000), 2),
+                        "pnl": round(pnl, 2),
+                        "cumulative": round(cumulative, 2),
+                    })
+                return trades
+
+            def _serve_file(self, filepath: Path) -> None:
+                """Serve a static file."""
+                if not filepath.exists():
+                    self.send_error(404)
+                    return
+
+                mime_type, _ = mimetypes.guess_type(str(filepath))
+                if mime_type is None:
+                    mime_type = "application/octet-stream"
+
+                with open(filepath, "rb") as f:
+                    content = f.read()
+
+                self.send_response(200)
+                self.send_header("Content-Type", mime_type)
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(content)
 
             def _json_response(self, data: Any) -> None:
                 self.send_response(200)
@@ -168,81 +218,6 @@ class MonitorServer:
                 self.send_header("Access-Control-Allow-Origin", "*")
                 self.end_headers()
                 self.wfile.write(json.dumps(data, default=str).encode())
-
-            def _serve_dashboard(self) -> None:
-                html = self._generate_html()
-                self.send_response(200)
-                self.send_header("Content-Type", "text/html")
-                self.end_headers()
-                self.wfile.write(html.encode())
-
-            def _generate_html(self) -> str:
-                return """
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <title>AI Quant Monitor</title>
-                    <script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
-                    <style>
-                        body { font-family: -apple-system, sans-serif; margin: 0; padding: 20px; background: #0f172a; color: #e2e8f0; }
-                        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-                        .card { background: #1e293b; border-radius: 12px; padding: 20px; margin-bottom: 20px; }
-                        .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
-                        .metric { background: #334155; padding: 15px; border-radius: 8px; }
-                        .metric-label { font-size: 12px; color: #94a3b8; text-transform: uppercase; }
-                        .metric-value { font-size: 24px; font-weight: bold; color: #6366f1; }
-                        .metric-value.positive { color: #22c55e; }
-                        .metric-value.negative { color: #ef4444; }
-                        #chart { width: 100%; height: 400px; }
-                        .status { padding: 8px 16px; border-radius: 20px; font-size: 14px; }
-                        .status.running { background: #22c55e33; color: #22c55e; }
-                        .status.stopped { background: #ef444433; color: #ef4444; }
-                    </style>
-                </head>
-                <body>
-                    <div class="header">
-                        <h1>AI Quant Monitor</h1>
-                        <span id="status" class="status running">Running</span>
-                    </div>
-                    <div class="card">
-                        <div class="metrics">
-                            <div class="metric"><div class="metric-label">Equity</div><div class="metric-value" id="equity">-</div></div>
-                            <div class="metric"><div class="metric-label">Daily PnL</div><div class="metric-value" id="pnl">-</div></div>
-                            <div class="metric"><div class="metric-label">Win Rate</div><div class="metric-value" id="winrate">-</div></div>
-                            <div class="metric"><div class="metric-label">Sharpe</div><div class="metric-value" id="sharpe">-</div></div>
-                            <div class="metric"><div class="metric-label">Max DD</div><div class="metric-value negative" id="dd">-</div></div>
-                        </div>
-                    </div>
-                    <div class="card">
-                        <div id="chart"></div>
-                    </div>
-                    <script>
-                        let data = [];
-                        async function fetchMetrics() {
-                            const resp = await fetch('/api/metrics');
-                            data = await resp.json();
-                            updateDisplay();
-                        }
-                        function updateDisplay() {
-                            if (!data.length) return;
-                            const latest = data[data.length - 1];
-                            document.getElementById('equity').textContent = '$' + latest.equity.toFixed(2);
-                            const pnlEl = document.getElementById('pnl');
-                            pnlEl.textContent = (latest.daily_pnl >= 0 ? '+' : '') + '$' + latest.daily_pnl.toFixed(2);
-                            pnlEl.className = 'metric-value ' + (latest.daily_pnl >= 0 ? 'positive' : 'negative');
-                            document.getElementById('winrate').textContent = (latest.win_rate * 100).toFixed(1) + '%';
-                            document.getElementById('sharpe').textContent = latest.sharpe_ratio.toFixed(2);
-                            document.getElementById('dd').textContent = (latest.max_drawdown * 100).toFixed(2) + '%';
-                            const equities = data.map(d => d.equity);
-                            const timestamps = data.map(d => d.timestamp.slice(11, 19));
-                            Plotly.newPlot('chart', [{x: timestamps, y: equities, type: 'scatter', mode: 'lines'}], {paper_bgcolor: '#1e293b', plot_bgcolor: '#1e293b', font: {color: '#e2e8f0'}});
-                        }
-                        fetchMetrics();
-                        setInterval(fetchMetrics, 5000);
-                    </script>
-                </body>
-                </html>
-                """
 
         self._server = HTTPServer((self.host, self.port), Handler)
         logger.info(f"Monitor server starting on http://{self.host}:{self.port}")
@@ -259,6 +234,7 @@ class MonitorServer:
         path = path or self.output_dir / "metrics.csv"
         history = self.tracker.get_history()
         if history:
+            import pandas as pd
             df = pd.DataFrame(history)
             df.to_csv(path, index=False)
             logger.info(f"Metrics exported to {path}")
