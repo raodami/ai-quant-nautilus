@@ -1,0 +1,44 @@
+# AI-Quant-Nautilus Configuration
+# All values have built-in defaults; only override what you need.
+# CLI args override this file; env vars (AQN_ prefix) override both.
+
+backtest:
+  instrument: "ETHUSDT.BINANCE"
+  initial_capital: 1000000.0
+  commission_bps: 10
+  slippage_bps: 5
+
+generator:
+  strategy_limit: 3
+  max_iterations: 10
+  model: "gpt-4o"
+  temperature: 0.7
+
+evaluator:
+  sharpe_min: 0.5
+  max_drawdown_max: 0.25
+  win_rate_min: 0.45
+  min_trades: 20
+
+risk:
+  max_position_pct: 0.1
+  max_total_exposure: 0.5
+  stop_loss_pct: 0.02
+
+data:
+  raw_dir: "data/raw"
+  cache_dir: "data/cache"
+  exchange: "binance"
+  symbols: ["ETHUSDT"]
+  interval: "1h"
+
+logging:
+  level: "INFO"
+  format: "json"
+  log_dir: "logs"
+
+experiment:
+  registry_path: "data/registry.json"
+  results_dir: "data/experiments"
+  cache_enabled: true
+  cache_ttl_hours: 24

@@ -18,7 +18,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Optional
 
-from ai_quant_nautilus.backtest.nautilus_adapter import (
+from ai_quant_nautilus.backtest.nautilus_engine import (
     NautilusBacktestAdapter,
     BacktestOutcome,
 )

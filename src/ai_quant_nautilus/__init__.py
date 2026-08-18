@@ -1,3 +1,12 @@
+from ai_quant_nautilus.backtest.nautilus_engine import (
+    BacktestOutcome,
+    NautilusBacktestAdapter,
+    LiveAdapter,
+    strategy_to_nautilus,
+    nautilus_strategy,
+    nautilus_available,
+    quick_backtest,
+)
 from ai_quant_nautilus.backtest.nautilus_adapter import (
     BacktestEngine,
     BacktestResult,
@@ -9,8 +18,26 @@ from ai_quant_nautilus.backtest.nautilus_adapter import (
     OrderSide,
     PositionDirection,
 )
+from ai_quant_nautilus.optimizer.optimizer import (
+    GeneticAlgorithm,
+    OptimizationResult,
+    Individual,
+    Parameter,
+    Encoding,
+    SelectionMethod,
+    CrossoverMethod,
+    MutationMethod,
+    optimize_ema,
+    optimize_rsi,
+    optimize_macd,
+    get_ema_parameters,
+    get_rsi_parameters,
+    get_macd_parameters,
+    get_combined_parameters,
+)
 
 __all__ = [
+    # Backtest
     "BacktestEngine",
     "BacktestResult",
     "BacktestConfig",
@@ -20,4 +47,20 @@ __all__ = [
     "Strategy",
     "OrderSide",
     "PositionDirection",
+    # Optimizer
+    "GeneticAlgorithm",
+    "OptimizationResult",
+    "Individual",
+    "Parameter",
+    "Encoding",
+    "SelectionMethod",
+    "CrossoverMethod",
+    "MutationMethod",
+    "optimize_ema",
+    "optimize_rsi",
+    "optimize_macd",
+    "get_ema_parameters",
+    "get_rsi_parameters",
+    "get_macd_parameters",
+    "get_combined_parameters",
 ]

@@ -1,3 +1,12 @@
+from ai_quant_nautilus.backtest.nautilus_engine import (
+    BacktestOutcome,
+    NautilusBacktestAdapter,
+    LiveAdapter,
+    strategy_to_nautilus,
+    nautilus_strategy,
+    nautilus_available,
+    quick_backtest,
+)
 from ai_quant_nautilus.backtest.nautilus_adapter import (
     BacktestEngine,
     BacktestResult,
@@ -11,6 +20,13 @@ from ai_quant_nautilus.backtest.nautilus_adapter import (
 )
 from ai_quant_nautilus.backtest.performance import PerformanceMetrics, calculate_performance_metrics
 from ai_quant_nautilus.backtest.templates import get_strategy_template
+from ai_quant_nautilus.backtest.portfolio import (
+    Portfolio,
+    PortfolioResult,
+    AssetPosition,
+    AllocationMethod,
+    backtest_portfolio,
+)
 
 __all__ = [
     "BacktestEngine",
@@ -25,4 +41,9 @@ __all__ = [
     "PerformanceMetrics",
     "calculate_performance_metrics",
     "get_strategy_template",
+    "Portfolio",
+    "PortfolioResult",
+    "AssetPosition",
+    "AllocationMethod",
+    "backtest_portfolio",
 ]
