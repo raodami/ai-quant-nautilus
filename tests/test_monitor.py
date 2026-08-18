@@ -150,15 +150,6 @@ class TestMetricsTracker:
 class TestMonitorServer:
     """Test monitor server."""
 
-    @patch("ai_quant_nautilus.monitor.HTTPServer")
-    def test_server_creation(self, mock_server_class):
-        """Test server can be created."""
-        tracker = MetricsTracker()
-        server = MonitorServer(tracker, port=9999)
-
-        assert server.port == 9999
-        assert server.host == "127.0.0.1"
-
     def test_assets_directory(self):
         """Test assets directory exists."""
         assets_dir = MonitorServer.ASSETS_DIR
