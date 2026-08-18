@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.venv/
+uv.lock
+data/
+logs/
+.pytest_cache/
+.hermes/
