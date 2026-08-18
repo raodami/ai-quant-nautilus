@@ -1,8 +1,8 @@
 """
 Strategy templates for NautilusTrader integration.
 
-Each template returns a complete Strategy subclass that can be
-executed by the Nautilus backtest engine.
+Each template returns a complete Strategy subclass using the pure Python
+Strategy base class (no nautilus_trader dependency).
 """
 
 from __future__ import annotations
@@ -60,57 +60,12 @@ def register_template(name: str):
     return decorator
 
 
-# ---------------------------------------------------------------------------
-# Base template code
-# ---------------------------------------------------------------------------
-
-BASE_CLASS_TEMPLATE = '''
-from decimal import Decimal
-from nautilus_trader.trading.strategy import Strategy
-from nautilus_trader.model.enums import OrderSide, TimeInForce
-from nautilus_trader.model.objects import Quantity
-
-
-class {name}(Strategy):
-    """{description}"""
-
-    def __init__(self, config):
-        super().__init__(config)
-        self._trade_size = Decimal("{trade_size}")
-        self._initialized = False
-
-    def on_start(self):
-        self._initialize()
-        self.log.info("{name} started on {instrument}")
-
-    def on_bar(self, bar):
-        self._on_bar(bar)
-
-    def on_stop(self):
-        self.log.info("{name} stopped")
-
-    def _initialize(self):
-        """Override in subclasses."""
-        self._initialized = True
-
-    def _on_bar(self, bar):
-        """Override in subclasses."""
-        pass
-'''
-
-
 def _make_template(
     name: str,
     description: str,
     params: dict[str, Any],
 ) -> StrategyTemplate:
     full_code = f'''
-from decimal import Decimal
-from nautilus_trader.trading.strategy import Strategy
-from nautilus_trader.model.enums import OrderSide, TimeInForce
-from nautilus_trader.model.objects import Quantity
-
-
 class {name}(Strategy):
     """{description}"""
 
@@ -126,10 +81,10 @@ class {name}(Strategy):
         self._initialized = False
 
     def on_start(self):
-        self._fast_ma = self.cache.indicator("ema", period=self._fast_period)
-        self._slow_ma = self.cache.indicator("ema", period=self._slow_period)
+        self._fast_ma = self.indicator("ema", period=self._fast_period)
+        self._slow_ma = self.indicator("ema", period=self._slow_period)
         self._initialized = True
-        self.log.info("{name} initialized with fast={{_fast_period}}, slow={{_slow_period}}")
+        self.log.info("{name} initialized")
 
     def on_bar(self, bar):
         if not self._initialized:
@@ -140,27 +95,20 @@ class {name}(Strategy):
         if fast is None or slow is None:
             return
 
-        position = self.cache.position(self.instrument_id)
-        side = self.cache.order_side(position) if position else None
-
-        if side is None or side == OrderSide.NO_ORDER_SIDE:
-            # Long entry
-            if fast > slow + Decimal(str(self._entry_threshold)):
-                self.order_market(
-                    self.instrument_id,
-                    OrderSide.BUY,
-                    self._trade_size,
-                    TimeInForce.FOK,
-                )
-        else:
-            # Long exit
-            if fast < slow - Decimal(str(self._exit_threshold)):
-                self.order_market(
-                    self.instrument_id,
-                    OrderSide.SELL,
-                    self._trade_size,
-                    TimeInForce.FOK,
-                )
+        # Long entry
+        if fast > slow + Decimal(str(self._entry_threshold)):
+            self.order_market(
+                self.instrument_id,
+                "BUY",
+                self._trade_size,
+            )
+        # Long exit
+        elif fast < slow - Decimal(str(self._exit_threshold)):
+            self.order_market(
+                self.instrument_id,
+                "SELL",
+                self._trade_size,
+            )
 
     def on_stop(self):
         self.log.info("{name} stopped")

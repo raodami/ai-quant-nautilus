@@ -4,8 +4,5 @@ from ai_quant_nautilus.generator.prompt_builder import GenerationContext, build_
 from ai_quant_nautilus.generator.schema import STRATEGY_SCHEMA, validate_schema_output
 from ai_quant_nautilus.sandbox.ast_guard import ast_guard
 from ai_quant_nautilus.data.collector import DataCollector
-from ai_quant_nautilus.data.mock_generator import generate_mock_dataset, OHLCVData, MockDataConfig
 from ai_quant_nautilus.backtest.performance import PerformanceMetrics, calculate_performance_metrics, evaluate_strategy_performance
-from ai_quant_nautilus.simulation.dry_runner import DryRunner, PaperResult
-from ai_quant_nautilus.risk.allocator import risk_parity_weights, allocate_capital, StrategyAllocation
-from ai_quant_nautilus.backtest.templates import get_strategy_template, STRATEGY_TEMPLATES
+from ai_quant_nautilus.backtest.templates import get_strategy_template, STRATEGY_TEMPLATES, StrategyTemplate
