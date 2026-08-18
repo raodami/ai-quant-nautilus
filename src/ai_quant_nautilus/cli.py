@@ -40,6 +40,26 @@ def main() -> int:
     # status: show current registry
     sub.add_parser("status", help="Show strategy registry status")
 
+    # dashboard: start monitoring dashboard
+    p_dash = sub.add_parser("dashboard", help="Start web monitoring dashboard")
+    p_dash.add_argument("--port", type=int, default=8080, help="Port for dashboard")
+
+    # data-quality: validate OHLCV data
+    p_dq = sub.add_parser("data-quality", help="Validate OHLCV data quality")
+    p_dq.add_argument("--symbol", type=str, default=None, help="Filter by symbol")
+    p_dq.add_argument("--data-dir", type=Path, default=None, help="Data directory")
+
+    # experiments: manage experiments
+    p_exp = sub.add_parser("experiments", help="List and manage experiments")
+    p_exp.add_argument("action", choices=["list", "best", "export"], help="Action to perform")
+    p_exp.add_argument("--metric", type=str, default="sharpe", help="Metric for best experiment")
+    p_exp.add_argument("--experiment-id", type=str, default=None, help="Experiment ID for export")
+    p_exp.add_argument("--output", type=Path, default=Path("experiment.json"), help="Output path")
+
+    # live: start live trading simulation
+    p_live = sub.add_parser("live", help="Start live trading simulation with monitoring")
+    p_live.add_argument("--port", type=int, default=8081, help="Port for live dashboard")
+
     args = parser.parse_args()
     if not args.command:
         parser.print_help()
@@ -78,9 +98,22 @@ def main() -> int:
     )
 
     from ai_quant_nautilus.cli_commands import dispatch
+    from ai_quant_nautilus.cli_live import cmd_dashboard, cmd_data_quality, cmd_experiments, cmd_live
+
     # Attach config to args so commands can access it
     args.config = cfg
-    return dispatch(args)
+
+    # Dispatch to appropriate handler
+    if args.command == "dashboard":
+        return cmd_dashboard(args, cfg)
+    elif args.command == "data-quality":
+        return cmd_data_quality(args, cfg)
+    elif args.command == "experiments":
+        return cmd_experiments(args, cfg)
+    elif args.command == "live":
+        return cmd_live(args, cfg)
+    else:
+        return dispatch(args)
 
 
 if __name__ == "__main__":
